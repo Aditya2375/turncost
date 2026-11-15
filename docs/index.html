@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="A synthetic long/cash momentum worksheet. Follow every lagged signal, cash-funded trade and fee."
+    />
+    <title>turncost / Momentum, after costs</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="src/app.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <a class="wordmark" href="#">turncost<span> / 12</span></a
+        ><span class="stamp">SYNTHETIC STRATEGY STUDY</span>
+      </header>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">ONE ASSET. LONG OR CASH.</p>
+          <h1>Momentum,<br />after costs.</h1>
+        </div>
+        <p class="lede">
+          A past return can trigger a trade.<br />A trade has to pay for
+          itself.<br /><span>Trace both through 360 invented periods.</span>
+        </p>
+      </section>
+      <form id="controls" novalidate>
+        <div class="fields">
+          <label
+            >Path<select id="scenario">
+              <option value="trend">Trend / reversal</option>
+              <option value="chop">Alternating / noisy</option>
+              <option value="flat">Flat / no signal</option>
+            </select></label
+          ><label
+            >Seed<input
+              id="seed"
+              type="number"
+              min="1"
+              max="4294967295"
+              step="1"
+              value="2026"
+              inputmode="numeric" /></label
+          ><label
+            >Lookback<select id="lookback">
+              <option value="20">20 periods</option>
+              <option value="60" selected>60 periods</option>
+              <option value="120">120 periods</option>
+            </select></label
+          ><label
+            >Entry threshold (%)<input
+              id="threshold"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              value="0" /></label
+          ><label
+            >One-way fee (bps)<input
+              id="fee"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              value="10" /></label
+          ><button type="submit">
+            Apply inputs <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </form>
+      <p id="applied" class="applied"></p>
+      <section aria-label="Results" class="metrics">
+        <div>
+          <h2>Net return</h2>
+          <strong id="net"></strong>
+          <p>After all trade fees</p>
+        </div>
+        <div>
+          <h2>No-fee return</h2>
+          <strong id="free"></strong>
+          <p>Same exposure, separate capital</p>
+        </div>
+        <div>
+          <h2>Return drag</h2>
+          <strong id="drag"></strong>
+          <p>No-fee minus net, percentage points</p>
+        </div>
+        <div>
+          <h2>Fees paid</h2>
+          <strong id="fees"></strong>
+          <p>Units debited, starting capital 1</p>
+        </div>
+      </section>
+      <section class="charts">
+        <div class="section-title">
+          <h2>01 / Capital paths</h2>
+          <p>
+            <span class="net-key">━ Net</span>
+            <span class="free-key">┄ No fee</span> · start = 1 unit
+          </p>
+        </div>
+        <svg
+          id="equity"
+          viewBox="0 0 1000 240"
+          role="img"
+          aria-labelledby="equity-title equity-desc"
+        >
+          <title id="equity-title">Net and no-fee capital paths</title>
+          <desc id="equity-desc">
+            Period-end capital, including terminal liquidation. Exact values are
+            in the ledger.
+          </desc>
+        </svg>
+        <p class="chart-note">
+          Full-path chart bounds use all periods, not an as-of view. Shaded area
+          is the warm-up. Dotted vertical line is the selected period.
+        </p>
+        <div class="section-title">
+          <h2>02 / Decision and exposure</h2>
+          <p>
+            Past-window return <span class="threshold-key">┄ Threshold</span>
+          </p>
+        </div>
+        <svg
+          id="signal"
+          viewBox="0 0 1000 200"
+          role="img"
+          aria-labelledby="signal-title signal-desc"
+        >
+          <title id="signal-title">
+            Lagged momentum signal and long or cash exposure
+          </title>
+          <desc id="signal-desc">
+            Signal uses only returns before the traded period. Bottom band marks
+            long periods. A blank band means cash.
+          </desc>
+        </svg>
+        <p class="chart-note">
+          Bottom band: filled = long during the period; blank = cash. Warm-up
+          has no signal. Exposure is chosen before that period's return.
+        </p>
+      </section>
+      <section class="audit">
+        <div class="section-title">
+          <h2>03 / Follow the cash</h2>
+          <p id="summary"></p>
+        </div>
+        <div class="inspector-controls">
+          <label for="period">Inspect period</label
+          ><input
+            id="period"
+            type="range"
+            min="1"
+            max="360"
+            value="360"
+          /><output id="selected" for="period"></output>
+        </div>
+        <div id="inspect" class="inspection" aria-live="polite"></div>
+        <p id="identity" class="identity"></p>
+        <p class="chart-note">
+          Hold shares means no rebalance and no fee. At period 360, any
+          remaining shares are sold after the return, with a second fee if the
+          period began with a buy.
+        </p>
+        <details>
+          <summary>All 360 periods / exact accounting ledger</summary>
+          <p id="ledger-help">
+            Scroll horizontally for all fields. Signal is known at period start;
+            shares and cash are period-end, after any terminal sale. Values
+            shown to 6 decimals; calculations use unrounded numbers.
+          </p>
+          <div
+            class="table-scroll"
+            tabindex="0"
+            role="region"
+            aria-label="Scrollable accounting ledger"
+            aria-describedby="ledger-help"
+          >
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Period</th>
+                  <th scope="col">Signal %</th>
+                  <th scope="col">Asset %</th>
+                  <th scope="col">Exposure</th>
+                  <th scope="col">Action</th>
+                  <th scope="col">Notional</th>
+                  <th scope="col">Fee</th>
+                  <th scope="col">Σ Fees</th>
+                  <th scope="col">Shares</th>
+                  <th scope="col">Cash</th>
+                  <th scope="col">Net capital</th>
+                  <th scope="col">No-fee capital</th>
+                </tr>
+              </thead>
+              <tbody id="ledger"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+      <section class="method">
+        <div class="section-title">
+          <h2>04 / Read the assumptions</h2>
+          <p>A small model, not a trading system</p>
+        </div>
+        <div class="method-grid">
+          <article>
+            <h3>Past, then position.</h3>
+            <p>
+              For period t, use P[t−1] / P[t−1−L] − 1. The first L periods stay
+              in cash. Go long only when the signal is strictly greater than the
+              threshold; equality means cash. Trade at P[t−1], then earn the
+              period's return to P[t].
+            </p>
+            <p>
+              This assumes immediate execution at the observed boundary price.
+              No market-open gap, processing delay or executable quote is
+              modeled.
+            </p>
+          </article>
+          <article>
+            <h3>Fees come from capital.</h3>
+            <p>
+              Start with 1 unit and no shares. At entry, shares = cash / (price
+              × (1 + c)), where c = bps / 10,000. At exit, cash = shares × price
+              × (1 − c). Shares stay fixed between trades; cash earns zero.
+              Terminal sales are charged.
+            </p>
+            <p>
+              Net capital = 1 + gross mark-to-market P&amp;L − cumulative fees.
+              Return drag also includes foregone compounding, so it is not the
+              same as fees paid.
+            </p>
+          </article>
+          <article>
+            <h3>Invented, not inferred.</h3>
+            <p>
+              Every path is generated locally from a seeded xorshift32 sequence.
+              Trend / reversal adds ±0.2% drift in three 120-period blocks with
+              ±0.8% uniform noise. Alternating adds ±0.9% with ±0.3% noise. Flat
+              returns zero.
+            </p>
+            <p>
+              No dates, market data, shorting, leverage, taxes, spread, impact,
+              funding, optimization or claims of predictive skill. Periods are
+              abstract; no annualized statistics. Educational illustration, not
+              investment advice.
+            </p>
+          </article>
+        </div>
+        <p class="reading">
+          Background:
+          <a
+            href="https://w4.stern.nyu.edu/facdir/lpederse/papers/TimeSeriesMomentum.pdf"
+            rel="noreferrer"
+            >Time series momentum</a
+          >
+          ·
+          <a
+            href="https://docs.mosek.com/portfolio-cookbook/transaction.html"
+            rel="noreferrer"
+            >Self-financing costs</a
+          >
+          ·
+          <a
+            href="https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins/updated"
+            rel="noreferrer"
+            >How fees affect returns</a
+          >. This is a long/cash teaching simplification, not a reproduction of
+          the paper's diversified, volatility-scaled futures strategy.
+        </p>
+      </section>
+      <footer>
+        <span>turncost / Java core + local browser mirror</span
+        ><span>MIT OR Apache-2.0 · No account, storage or data upload</span>
+      </footer>
+    </main>
+  </body>
+</html>
